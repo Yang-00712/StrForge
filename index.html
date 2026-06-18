@@ -1,37 +1,20 @@
 <!DOCTYPE html>
 <html>
-
 <head>
     <base href="/StrForge/" />
     <title>StrForge.App.Browser</title>
     <meta charset="UTF-8">
-    
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content">
     <link rel="stylesheet" href="./app.css" />
-    
     <style>
-        /* [關鍵修復 2] 防止手機瀏覽器的橡皮筋效應與下拉刷新，將畫面完全交給 Avalonia 接管 */
         html, body {
-            margin: 0;
-            padding: 0;
-            width: 100vw;
-            height: 100vh;
-            overflow: hidden;
-            background-color: #121212; /* 銜接 MainView 的背景色避免閃爍 */
-            touch-action: none; /* 徹底禁用瀏覽器層級的雙擊放大與拖曳 */
-        }
-        #out {
-            width: 100%;
-            height: 100%;
+            margin: 0; padding: 0; width: 100vw; height: 100vh;
+            overflow: hidden; background-color: #121212; touch-action: none;
         }
     </style>
 </head>
-
 <body>
     <div id="out"></div>
-
     <script type='module' src="./main.js"></script>
 </body>
-
 </html>
