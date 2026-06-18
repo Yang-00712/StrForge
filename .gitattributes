@@ -1,0 +1,8 @@
+* text=auto
+*.wasm binary
+*.dll binary
+*.dat binary
+*.pdb binary
+*.br binary
+*.gz binary
+*.blat binary
