@@ -1,2 +1,2 @@
-# StrForgeV14
+# StrForge
 
