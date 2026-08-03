@@ -1,8 +1,8 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-Hant">
 <head>
-    <base href="/StrForge/" />
-    <title>StrForge.App.Browser</title>
+    <base href="./" />
+    <title>StrForge</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, interactive-widget=resizes-content">
     <meta name="theme-color" content="#121212">
@@ -10,28 +10,17 @@
     <meta name="apple-mobile-web-app-title" content="StrForge">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-
-    <link rel="apple-touch-icon" sizes="120x120" href="apple-touch-icon-120x120-v2.png">
-    <link rel="apple-touch-icon" sizes="152x152" href="apple-touch-icon-152x152-v2.png">
-    <link rel="apple-touch-icon" sizes="167x167" href="apple-touch-icon-167x167-v2.png">
-    <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon-180x180-v2.png">
-    <link rel="apple-touch-icon" href="apple-touch-icon-v2.png">
-    <link rel="apple-touch-icon-precomposed" href="apple-touch-icon-precomposed.png">
-
-    <link rel="icon" type="image/x-icon" href="favicon.ico">
-    <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16-v2.png">
-    <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32-v2.png">
-    <link rel="manifest" href="manifest-v2.webmanifest">
-    <link rel="stylesheet" href="./app.css" />
-    <style>
-        html, body {
-            margin: 0; padding: 0; width: 100vw; height: 100vh;
-            overflow: hidden; background-color: #121212; touch-action: none;
-        }
-    </style>
+    <link rel="apple-touch-icon" sizes="120x120" href="icons/apple-touch-icon-120x120.png">
+    <link rel="apple-touch-icon" sizes="152x152" href="icons/apple-touch-icon-152x152.png">
+    <link rel="apple-touch-icon" sizes="167x167" href="icons/apple-touch-icon-167x167.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon-180x180.png">
+    <link rel="icon" type="image/x-icon" href="icons/favicon.ico">
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="stylesheet" href="app.css">
 </head>
 <body>
     <div id="out"></div>
-    <script type='module' src="./main.js"></script>
+    <div class="loading" aria-live="polite">StrForge 載入中…</div>
+    <script type="module" src="main.js"></script>
 </body>
 </html>
