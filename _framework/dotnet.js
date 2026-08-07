@@ -161,8 +161,8 @@ var e=!1;const t=async()=>WebAssembly.validate(new Uint8Array([0,97,115,109,1,0,
       },
       {
         "virtualPath": "StrForge.App.wasm",
-        "name": "StrForge.App.743a174497.wasm",
-        "hash": "sha256-dDoXRJcoKkfypnen0nI8q4mrhcJOUD6qM+9g+dR6Wmg=",
+        "name": "StrForge.App.cc8636fe85.wasm",
+        "hash": "sha256-zIY2/oUqHGgj9GDlK+Tc3QhzW+eLE2v0H6c8OZUesfA=",
         "cache": "force-cache"
       },
       {
