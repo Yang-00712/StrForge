@@ -104,12 +104,16 @@ try {
                     await page.waitForSelector('.loading[data-state="error"]');
                     await assertState(page,true);
                     if (scenario === 'previous-cache-upgrade') {
-                        mode='previous';await page.goto(url+'?baseline');await ready(page,false);
+                        mode='previous';await page.reload({waitUntil:'domcontentloaded'});await ready(page,false);
+                        assert.equal(await page.evaluate(()=>typeof globalThis.strforgeStartup),'undefined');
                         await assertState(page);
                         mode='normal';const startIndex=requests.length;
                         await page.reload({waitUntil:'domcontentloaded'});await ready(page);
                         assert.equal(await page.evaluate(()=>strforgeStartup.runtimeHash),currentHash);
-                        assert.ok(requests.slice(startIndex).some(r=>r.path==='/_framework/dotnet.js' && r.cache?.includes('no-cache')));
+                        // Fetch cache=no-cache may send Cache-Control: max-age=0 (Fetch Standard).
+                        const revalidated=requests.slice(startIndex).filter(r=>r.path==='/_framework/dotnet.js' && r.search==='');
+                        assert.ok(revalidated.some(r=>/(?:no-cache|max-age=0)/i.test(r.cache || '')));
+                        result.revalidationHeaders=revalidated.map(r=>r.cache);
                         await assertState(page);
                         await page.close();const reopened=await context.newPage();
                         await reopened.goto(url);await ready(reopened);await assertState(reopened);

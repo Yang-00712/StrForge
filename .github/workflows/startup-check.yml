@@ -1,7 +1,7 @@
 name: Browser startup checks
 on:
   push:
-    branches: [fix/browser-startup]
+    branches: [main, fix/browser-startup]
   pull_request:
     branches: [main]
 permissions:
