@@ -35,6 +35,14 @@ export function saveState(stateJson) {
     localStorage.setItem(PRIMARY_KEY, stateJson);
 }
 
+// Payload-size estimate for this app's two keys only; not origin quota or RAM.
+// Let access errors propagate so Set shows "unavailable", never a false zero.
+export function getStorageBytes() {
+    const encoder = new TextEncoder();
+    return [PRIMARY_KEY, BACKUP_KEY].reduce((total, key) =>
+        total + encoder.encode(localStorage.getItem(key) ?? "").byteLength, 0);
+}
+
 export function requestPersistence() {
     try {
         if (navigator.storage?.persist) {
