@@ -20,14 +20,18 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: '22'
+      - name: Unit checks
+        run: node --test tools/startup-unit.test.mjs
       - name: Install isolated browser test tools
         run: |
           mkdir -p "$RUNNER_TEMP/startup-tools"
           npm install --prefix "$RUNNER_TEMP/startup-tools" --ignore-scripts --no-audit --no-fund playwright@1.63.0
-          node "$RUNNER_TEMP/startup-tools/node_modules/playwright/cli.js" install --with-deps chromium webkit
+          node "$RUNNER_TEMP/startup-tools/node_modules/playwright/cli.js" install --with-deps chromium webkit > "$RUNNER_TEMP/browser-install.log" 2>&1 || { tail -80 "$RUNNER_TEMP/browser-install.log"; exit 1; }
           echo "PLAYWRIGHT_MODULE=$RUNNER_TEMP/startup-tools/node_modules/playwright/index.mjs" >> "$GITHUB_ENV"
       - name: Check payload integrity and cold/warm startup
         run: node tools/startup-check.mjs
+      - name: Check old-cache upgrade, failure recovery and slow loading
+        run: node tools/startup-recovery.mjs
       - uses: actions/upload-artifact@v5
         if: ${{ !cancelled() }}
         with:
