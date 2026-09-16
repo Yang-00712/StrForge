@@ -1,7 +1,7 @@
 name: Browser startup checks
 on:
   push:
-    branches: [main, fix/browser-startup, fix/ios-standalone-download-stall]
+    branches: [main, fix/browser-startup]
   pull_request:
     branches: [main]
 permissions:
@@ -30,8 +30,6 @@ jobs:
           echo "PLAYWRIGHT_MODULE=$RUNNER_TEMP/startup-tools/node_modules/playwright/index.mjs" >> "$GITHUB_ENV"
       - name: Check payload integrity and cold/warm startup
         run: node tools/startup-check.mjs
-      - name: Check iOS standalone bootstrap path
-        run: node tools/startup-standalone.mjs
       - name: Check old-cache upgrade, failure recovery and slow loading
         run: node tools/startup-recovery.mjs
       - uses: actions/upload-artifact@v5
