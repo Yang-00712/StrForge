@@ -1,0 +1,36 @@
+name: Browser startup checks
+on:
+  push:
+    branches: [fix/browser-startup]
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+concurrency:
+  group: startup-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  startup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+      - name: Install isolated browser test tools
+        run: |
+          mkdir -p "$RUNNER_TEMP/startup-tools"
+          npm install --prefix "$RUNNER_TEMP/startup-tools" --ignore-scripts --no-audit --no-fund playwright@1.63.0
+          node "$RUNNER_TEMP/startup-tools/node_modules/playwright/cli.js" install --with-deps chromium webkit
+          echo "PLAYWRIGHT_MODULE=$RUNNER_TEMP/startup-tools/node_modules/playwright/index.mjs" >> "$GITHUB_ENV"
+      - name: Check payload integrity and cold/warm startup
+        run: node tools/startup-check.mjs
+      - uses: actions/upload-artifact@v5
+        if: ${{ !cancelled() }}
+        with:
+          name: startup-report
+          path: startup-report/
+          retention-days: 7
