@@ -21,7 +21,18 @@ jobs:
         with:
           node-version: '22'
       - name: Unit checks
-        run: node --test tools/startup-unit.test.mjs
+        run: node --test tools/startup-unit.test.mjs tools/startup-baseline.test.mjs
+      - name: Prepare complete isolated historical baseline
+        timeout-minutes: 3
+        run: |
+          baseline_commit="$(node --input-type=module -e "import { BASELINE_COMMIT } from './tools/startup-baseline.mjs'; process.stdout.write(BASELINE_COMMIT)")"
+          [[ "$baseline_commit" =~ ^[a-f0-9]{40}$ ]]
+          baseline_root="$(mktemp -d "$RUNNER_TEMP/strforge-baseline.XXXXXX")"
+          git -C "$baseline_root" init --quiet
+          git -C "$baseline_root" -c fetch.fsckObjects=true fetch --no-tags --depth=1 https://github.com/Yang-00712/StrForge.git "$baseline_commit"
+          git -C "$baseline_root" -c advice.detachedHead=false checkout --detach FETCH_HEAD
+          test "$(git -C "$baseline_root" rev-parse HEAD)" = "$baseline_commit"
+          echo "STARTUP_BASELINE_ROOT=$baseline_root" >> "$GITHUB_ENV"
       - name: Install isolated browser test tools
         run: |
           mkdir -p "$RUNNER_TEMP/startup-tools"

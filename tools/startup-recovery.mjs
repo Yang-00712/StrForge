@@ -5,6 +5,7 @@ import { resolve, sep, extname } from 'node:path';
 import { gzipSync, gunzipSync, brotliDecompressSync } from 'node:zlib';
 import { pathToFileURL } from 'node:url';
 import { readRuntimeVersion } from '../main.js';
+import { openBaseline } from './startup-baseline.mjs';
 
 const root = process.cwd();
 const out = resolve('startup-report');
@@ -14,15 +15,14 @@ const candidateIndex = await readFile('index.html');
 const candidateMain = await readFile('main.js');
 const runtime = await readFile('_framework/dotnet.js');
 const currentHash = readRuntimeVersion(runtime.toString());
-const previous = 'dbcb7f69bc3497eaa3224599dc81b7fc728df82b';
-async function oldFile(path) {
-    const response = await fetch(`https://raw.githubusercontent.com/Yang-00712/StrForge/${previous}/${path}`);
-    assert.equal(response.status, 200, `Cannot retrieve exact baseline ${path}`);
-    return Buffer.from(await response.arrayBuffer());
-}
-const [oldIndex, oldMain, oldRuntime] = await Promise.all(['index.html','main.js','_framework/dotnet.js'].map(oldFile));
-const previousHash = readRuntimeVersion(oldRuntime.toString());
+// A full pinned checkout lives in runner temp, never in the website tree.
+// Every old request is served from that snapshot; no candidate fallback exists.
+const baseline = await openBaseline(process.env.STARTUP_BASELINE_ROOT);
+assert.ok(baseline.root !== root && !baseline.root.startsWith(root + sep),
+    'Historical fixture must be outside the candidate website tree.');
+const previousHash = baseline.hash;
 assert.notEqual(currentHash, previousHash);
+console.log('BASELINE', JSON.stringify({ commit: baseline.commit, hash: previousHash, assets: baseline.assetCount }));
 for (const path of ['index.html', 'main.js']) {
     const plain = await readFile(path);
     assert.deepEqual(gunzipSync(await readFile(path+'.gz')), plain, path+' gzip differs');
@@ -32,35 +32,38 @@ let mode = 'normal';
 const requests = [];
 const mime = { '.html':'text/html', '.js':'text/javascript', '.css':'text/css', '.wasm':'application/wasm', '.webmanifest':'application/manifest+json', '.png':'image/png', '.ico':'image/x-icon' };
 const server = createServer(async (req,res) => {
+    let request;
     try {
         const url = new URL(req.url, 'http://localhost');
         const path = decodeURIComponent(url.pathname === '/' ? '/index.html' : url.pathname);
         const file = resolve(root, '.'+path);
         if (!file.startsWith(root+sep)) {res.writeHead(403).end();return;}
-        requests.push({ path, search:url.search, mode, cache:req.headers['cache-control'] || null });
-        if ((mode === 'loader404' && path === '/_framework/dotnet.js') ||
-            (mode === 'module404' && path === '/_framework/dotnet.js' && url.searchParams.has('strforgeBuild')) ||
-            (mode === 'wasm404' && path.includes('/dotnet.native.') && path.endsWith('.wasm'))) {
+        const requestMode = mode;
+        request = { path, search:url.search, mode:requestMode, cache:req.headers['cache-control'] || null, status:null };
+        requests.push(request);
+        if ((requestMode === 'loader404' && path === '/_framework/dotnet.js') ||
+            (requestMode === 'module404' && path === '/_framework/dotnet.js' && url.searchParams.has('strforgeBuild')) ||
+            (requestMode === 'wasm404' && path.includes('/dotnet.native.') && path.endsWith('.wasm'))) {
+            request.status=404;
             res.writeHead(404,{'Cache-Control':'no-store'}).end('Injected test failure');return;
         }
-        if (mode === 'delayed-native' && path.includes('/dotnet.native.') && path.endsWith('.wasm')) {
+        if (requestMode === 'delayed-native' && path.includes('/dotnet.native.') && path.endsWith('.wasm')) {
             await new Promise(r=>setTimeout(r,20000));
             if (res.destroyed) return;
         }
-        let data;
-        if (mode === 'previous') {
-            if (path === '/index.html') data = oldIndex;
-            if (path === '/main.js') data = oldMain;
-            if (path === '/_framework/dotnet.js') data = oldRuntime;
-        }
-        data ??= path === '/index.html' ? candidateIndex : path === '/main.js' ? candidateMain : await readFile(file);
+        let data = requestMode === 'previous' ? await baseline.read(path)
+            : path === '/index.html' ? candidateIndex : path === '/main.js' ? candidateMain : await readFile(file);
         const headers = { 'Content-Type':mime[extname(path)] || 'application/octet-stream', 'Cache-Control':'public, max-age=600' };
         if (/gzip/.test(req.headers['accept-encoding'] || '') && !/\.(gz|br|png|ico)$/.test(path)) {
             data = gzipSync(data);headers['Content-Encoding']='gzip';headers.Vary='Accept-Encoding';
         }
         headers['Content-Length'] = data.length;
+        request.status=200;
         res.writeHead(200,headers).end(data);
-    } catch {res.writeHead(404).end('Not found');}
+    } catch(error) {
+        if(request) {request.status=404;request.error=String(error);}
+        res.writeHead(404,{'Cache-Control':'no-store'}).end('Not found');
+    }
 });
 await new Promise(r=>server.listen(0,'127.0.0.1',r));
 const url = `http://127.0.0.1:${server.address().port}/`;
@@ -95,7 +98,8 @@ try {
             const scenarios=['previous-cache-upgrade','loader404','module404','wasm404','delayed-native'];
             if (name === 'chromium') scenarios.push('4Mbps-cold');
             for (const scenario of scenarios) {
-                const result={browser:name,scenario};const started=Date.now();
+                const result={browser:name,scenario,phase:'seed'};const started=Date.now();
+                const firstRequest=requests.length;
                 const context=await browser.newContext(options);const page=await context.newPage();
                 const errors=[];page.on('pageerror',e=>errors.push(String(e)));
                 try {
@@ -104,9 +108,15 @@ try {
                     await page.waitForSelector('.loading[data-state="error"]');
                     await assertState(page,true);
                     if (scenario === 'previous-cache-upgrade') {
+                        result.phase='baseline-startup';
                         mode='previous';await page.reload({waitUntil:'domcontentloaded'});await ready(page,false);
                         assert.equal(await page.evaluate(()=>typeof globalThis.strforgeStartup),'undefined');
                         await assertState(page);
+                        assert.equal(errors.length,0,'Historical baseline must start without page errors.');
+                        assert.equal(requests.slice(firstRequest).filter(r=>r.mode==='previous' && r.status>=400).length,0,
+                            'Historical baseline must have all requested assets.');
+                        result.baselineReady=true;
+                        result.phase='candidate-upgrade';
                         mode='normal';const startIndex=requests.length;
                         await page.reload({waitUntil:'domcontentloaded'});await ready(page);
                         assert.equal(await page.evaluate(()=>strforgeStartup.runtimeHash),currentHash);
@@ -115,22 +125,26 @@ try {
                         assert.ok(revalidated.some(r=>/(?:no-cache|max-age=0)/i.test(r.cache || '')));
                         result.revalidationHeaders=revalidated.map(r=>r.cache);
                         await assertState(page);
+                        result.phase='candidate-reopen';
                         await page.close();const reopened=await context.newPage();
                         await reopened.goto(url);await ready(reopened);await assertState(reopened);
                         await reopened.screenshot({path:resolve(out,`${name}-${scenario}.png`)});
                         result.previousHash=previousHash;result.currentHash=currentHash;
                         result.reopen='passed';
                     } else if (['loader404','module404','wasm404'].includes(scenario)) {
+                        result.phase='injected-failure';
                         mode=scenario;await page.goto(url+'?failure='+scenario,{waitUntil:'domcontentloaded'});
                         await page.waitForSelector('.loading[data-state="error"]',{timeout:30000});
                         await assertState(page,true);
                         assert.ok((await page.locator('#strforge-startup-error').innerText()).length>0);
                         await page.screenshot({path:resolve(out,`${name}-${scenario}.png`)});
+                        result.phase='retry';
                         mode='normal';await page.locator('#strforge-startup-retry').click();await ready(page);
                         await assertState(page);
                         assert.equal(new URL(page.url()).searchParams.has('strforgeRetry'),false);
                         result.retry='passed';
                     } else {
+                        result.phase='slow-startup';
                         mode = scenario === 'delayed-native' ? 'delayed-native' : 'normal';
                         if(scenario==='4Mbps-cold') {
                             const cdp=await context.newCDPSession(page);
@@ -151,6 +165,7 @@ try {
                     result.status='passed';
                 } catch(error) {
                     failed=true;result.status='failed';result.error=String(error);
+                    result.failedRequests=requests.slice(firstRequest).filter(r=>r.status>=400);
                     if(!page.isClosed()) await page.screenshot({path:resolve(out,`${name}-${scenario}-failed.png`)}).catch(()=>{});
                 } finally {
                     result.elapsedMs=Date.now()-started;result.pageErrors=errors;
