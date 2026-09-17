@@ -1,0 +1,23 @@
+name: T90 cycle checks (source only)
+on:
+  push:
+    branches: ['test/t90-cycle']
+permissions:
+  contents: read
+jobs:
+  dice:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.400'
+      - name: Compile and test the exact overlay generator
+        run: dotnet run --project tools/t90-cycle-checks/T90.Cycle.Checks.csproj -c Release
