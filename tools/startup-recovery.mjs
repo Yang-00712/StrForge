@@ -96,7 +96,7 @@ try {
         const browser=await engine.launch();
         try {
             const scenarios=['previous-cache-upgrade','loader404','module404','wasm404','delayed-native'];
-            if (name === 'chromium') scenarios.push('4Mbps-cold');
+            if (name === 'chromium') scenarios.push('2Mbps-cold');
             for (const scenario of scenarios) {
                 const result={browser:name,scenario,phase:'seed'};const started=Date.now();
                 const firstRequest=requests.length;
@@ -146,11 +146,11 @@ try {
                     } else {
                         result.phase='slow-startup';
                         mode = scenario === 'delayed-native' ? 'delayed-native' : 'normal';
-                        if(scenario==='4Mbps-cold') {
+                        if(scenario==='2Mbps-cold') {
                             const cdp=await context.newCDPSession(page);
                             await cdp.send('Network.enable');
                             await cdp.send('Network.setCacheDisabled',{cacheDisabled:true});
-                            await cdp.send('Network.emulateNetworkConditions',{offline:false,latency:100,downloadThroughput:500000,uploadThroughput:500000});
+                            await cdp.send('Network.emulateNetworkConditions',{offline:false,latency:100,downloadThroughput:250000,uploadThroughput:250000});
                         }
                         const startLoad=Date.now();await page.goto(url+'?slow',{waitUntil:'domcontentloaded'});
                         await page.waitForTimeout(16000);
